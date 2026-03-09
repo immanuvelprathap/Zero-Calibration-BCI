@@ -7,17 +7,21 @@ import pickle
 from sklearn.preprocessing import LabelEncoder
 from model import EEGNet
 
-def train_loso_pipeline(data_path, epochs=30, batch_size=16):
+def train_loso_pipeline(data_path, epochs=50, batch_size=16): # Increased epochs to 50
     # 1. Load the aligned data
     print(f"Loading aligned data from {data_path}...")
     with open(data_path, 'rb') as f:
         data = pickle.load(f)
         
-    X = data['X']        # (Trials, Channels, Time)
-    y = data['y']        # String labels (e.g., 'left_hand', 'right_hand')
-    meta = data['meta']  # Subject metadata
-    
-    # 2. Encode string labels to integers (0 and 1)
+    # --- NEW: BINARY FILTERING LOGIC ---
+    mask = np.isin(data['y'], ['left_hand', 'right_hand'])
+    X = data['X'][mask]
+    y = data['y'][mask]
+    meta = data['meta'][mask]
+    print(f"Targeting Binary Motor Imagery: {X.shape[0]} trials remaining.")
+    # -----------------------------------
+
+    # 2. Encode string labels (Now just 0 and 1)
     le = LabelEncoder()
     y_encoded = le.fit_transform(y)
     print(f"Classes detected: {le.classes_}")
