@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" id="Layer_1" data-name="Layer 1" viewBox="0 0 48 48">
+  <rect fill="none" stroke="#050038" stroke-width="4" x="2" y="20" width="30" height="22" rx="4" ry="4"/>
+  <path fill="none" stroke="#050038" stroke-width="4" d="M9,20.77v-3.77c0-2.2,1.8-4,4-4h22c2.2,0,4,1.8,4,4v14c0,2.2-1.8,4-4,4h-3.05"/>
+  <path fill="none" stroke="#050038" stroke-width="4" d="M16,13.29v-3.29c0-2.2,1.8-4,4-4h22c2.2,0,4,1.8,4,4v14c0,2.2-1.8,4-4,4h-2.78"/>
+</svg>

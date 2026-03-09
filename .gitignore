@@ -1,0 +1,14 @@
+# Virtual Environments
+bci_env/
+
+# Datasets and generated files
+dataset/
+save/
+result/
+*.pkl
+*.edf
+
+# Python caches
+__pycache__/
+*.pyc
+.DS_Store
