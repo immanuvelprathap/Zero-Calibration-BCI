@@ -7,7 +7,7 @@ from pathlib import Path
 def euclidean_alignment(X, meta):
     """
     Applies Riemannian Domain Adaptation (Euclidean Alignment).
-    X: shape (Trials, Channels, Time)
+    X: shape (Trials, Channels, Time) -> (n, c, t)
     meta: DataFrame containing subject IDs corresponding to each trial
     """
     print("\nApplying Riemannian Domain Adaptation (Euclidean Alignment)...")
@@ -20,19 +20,21 @@ def euclidean_alignment(X, meta):
         sub_X = X[idx]
         
         # 2. Compute trial covariances: R_i = X_i * X_i^T
-        # np.einsum efficiently performs batch matrix multiplication
-        covs = np.einsum('nct,ntc->ncc', sub_X, sub_X.transpose(0, 2, 1))
+        # n = trials, i = channels, j = channels, t = time
+        # This computes the dot product across the time dimension for every channel pair
+        covs = np.einsum('nit,njt->nij', sub_X, sub_X)
         
         # 3. Compute Subject Mean Covariance: R_bar
         mean_cov = np.mean(covs, axis=0)
         
         # 4. Compute Alignment Transform: R_bar^(-1/2)
-        # We use real() because fractional_matrix_power can return tiny imaginary 
+        # We use np.real() because fractional_matrix_power can return tiny imaginary 
         # artifacts due to numerical floating-point precision limits.
         r_inv_half = np.real(fractional_matrix_power(mean_cov, -0.5))
         
         # 5. Apply transformation: X_tilde = R_bar^(-1/2) * X
-        aligned_X[idx] = np.einsum('cc,nct->nct', r_inv_half, sub_X)
+        # i = channels, j = channels, n = trials, t = time
+        aligned_X[idx] = np.einsum('ij,njt->nit', r_inv_half, sub_X)
         
     print("Alignment complete! All subject spatial covariances are centered at the Identity Matrix (I).")
     return aligned_X
