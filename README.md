@@ -15,7 +15,7 @@ This project proposes a zero-calibration framework that combines **Riemannian ge
 
 ### Architecture Pipeline
 ![Architecture Diagram](DL%20Project%20Unibe%20Old.jpg)
-<img src="DL Project Unibe Old.jpg" alt="Architecture Diagram" width="100%">
+<!--- <img src="DL Project Unibe Old.jpg" alt="Architecture Diagram" width="100%"> ---> 
 *(Note: Ensure the architecture diagram image is named correctly in the repository).*
 
 Our pipeline decouples the calibration problem into two distinct phases:
