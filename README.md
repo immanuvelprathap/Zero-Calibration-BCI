@@ -14,7 +14,7 @@ Electroencephalogram (EEG) signals are highly sensitive to individual physiologi
 This project proposes a zero-calibration framework that combines **Riemannian geometry** with a **depthwise separable convolutional neural network (EEGNet)**. By mathematically aligning the data before it touches the neural network, we effectively erase the physiological bias of individual users.
 
 ### Architecture Pipeline
-![Architecture Diagram](DL%20Project%20Unibe.jpg)
+<img src="DL Project Unibe.jpg" alt="Architecture Diagram" width="100%">
 *(Note: Ensure the architecture diagram image is named correctly in the repository).*
 
 Our pipeline decouples the calibration problem into two distinct phases:
