@@ -1,6 +1,6 @@
 # Zero-Calibration Brain-Computer Interfaces via Riemannian Domain Adaptation
 
-**Authors:** Immanuvel Prathap Sagayaraju, Filip Nikolic, Harsh Nayak  
+**Authors:** Immanuvel Prathap Sagayaraju, Filip Nikolic, Pratik  
 **Program:** MSc in Artificial Intelligence in Medicine (AIM), University of Bern  
 
 ---
