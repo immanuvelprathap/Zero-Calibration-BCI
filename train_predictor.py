@@ -7,82 +7,73 @@ import pickle
 from sklearn.preprocessing import LabelEncoder
 from model import EEGNet
 
-def train_loso_pipeline(data_path, epochs=50, batch_size=16): # Increased epochs to 50
-    # 1. Load the aligned data
+def train_loso_pipeline(data_path, epochs=100, batch_size=32): # epochs=60 to 100 - more parameters need more time to converge
     print(f"Loading aligned data from {data_path}...")
     with open(data_path, 'rb') as f:
         data = pickle.load(f)
         
-    # --- NEW: BINARY FILTERING LOGIC ---
     mask = np.isin(data['y'], ['left_hand', 'right_hand'])
-    X = data['X'][mask]
-    y = data['y'][mask]
-    meta = data['meta'][mask]
-    print(f"Targeting Binary Motor Imagery: {X.shape[0]} trials remaining.")
-    # -----------------------------------
+    X, y, meta = data['X'][mask], data['y'][mask], data['meta'][mask]
 
-    # 2. Encode string labels (Now just 0 and 1)
     le = LabelEncoder()
     y_encoded = le.fit_transform(y)
-    print(f"Classes detected: {le.classes_}")
-    
     subjects = meta['subject'].unique()
-    print(f"Found {len(subjects)} subjects for LOSO Cross-Validation.")
+    
+    # --- 🔥 THE CUDA BRIDGE 🔥 ---
+    # This automatically detects your RTX A2000
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"\n🚀 Initializing Hardware: {device.type.upper()}")
+    if device.type == 'cuda':
+        print(f"GPU Detected: {torch.cuda.get_device_name(0)}")
+    # -----------------------------
     
     loso_accuracies = []
     
-    # 3. Leave-One-Subject-Out Loop
     for test_sub in subjects:
-        print(f"\n{'-'*50}")
-        print(f"Testing on Unseen Subject {test_sub} (Zero-Calibration)")
-        print(f"{'-'*50}")
+        print(f"\n--- Testing Unseen Subject {test_sub} ---")
         
-        # Split data: Test is the current subject, Train is everyone else
         test_idx = meta['subject'] == test_sub
-        train_idx = ~test_idx
-        
-        X_train, y_train = X[train_idx], y_encoded[train_idx]
+        X_train, y_train = X[~test_idx], y_encoded[~test_idx]
         X_test, y_test = X[test_idx], y_encoded[test_idx]
         
-        # Convert to PyTorch Tensors
-        X_train_t = torch.tensor(X_train, dtype=torch.float32)
-        y_train_t = torch.tensor(y_train, dtype=torch.long)
-        X_test_t = torch.tensor(X_test, dtype=torch.float32)
-        y_test_t = torch.tensor(y_test, dtype=torch.long)
-        
         # Create DataLoaders
-        train_dataset = TensorDataset(X_train_t, y_train_t)
-        test_dataset = TensorDataset(X_test_t, y_test_t)
+        train_loader = DataLoader(TensorDataset(torch.tensor(X_train, dtype=torch.float32), 
+                                                torch.tensor(y_train, dtype=torch.long)), 
+                                  batch_size=batch_size, shuffle=True)
+        test_loader = DataLoader(TensorDataset(torch.tensor(X_test, dtype=torch.float32), 
+                                               torch.tensor(y_test, dtype=torch.long)), 
+                                 batch_size=batch_size, shuffle=False)
         
-        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-        test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
+        # Initialize Model and SHIP IT TO THE GPU
+        model = EEGNet(n_classes=2)
+        model.to(device) # <--- Moving the neural network to VRAM
         
-        # 4. Initialize Model, Loss, and Optimizer for this fold
-        model = EEGNet(n_classes=len(le.classes_))
-        criterion = nn.CrossEntropyLoss()
-        optimizer = optim.Adam(model.parameters(), lr=0.001)
+        # V2 Logic: Standard CrossEntropy (No label smoothing)
+        criterion = nn.CrossEntropyLoss(label_smoothing=0.1) # change your loss function to include Label Smoothing. This helps significantly with generalization across different subjects.
+        #optimizer = optim.Adam(model.parameters(), lr=0.001, weight_decay=1e-3)
+        # Inside train_predictor.py
+        optimizer = optim.Adam(model.parameters(), lr=0.0005, weight_decay=1e-3) #slower learning prevents the model from "overshooting" the optimal weights
         
-        # 5. Training Loop
+        # Training Loop
         model.train()
         for epoch in range(epochs):
-            running_loss = 0.0
             for batch_X, batch_y in train_loader:
+                # SHIP BATCHES TO THE GPU
+                batch_X, batch_y = batch_X.to(device), batch_y.to(device)
+                
                 optimizer.zero_grad()
-                outputs = model(batch_X)
-                loss = criterion(outputs, batch_y)
+                loss = criterion(model(batch_X), batch_y)
                 loss.backward()
                 optimizer.step()
-                running_loss += loss.item()
                 
-            if (epoch + 1) % 10 == 0:
-                print(f"  Epoch [{epoch+1}/{epochs}] Loss: {running_loss/len(train_loader):.4f}")
-                
-        # 6. Evaluation (Zero-Calibration inference)
+        # Evaluation Loop
         model.eval()
-        correct = 0
-        total = 0
+        correct, total = 0, 0
         with torch.no_grad():
             for batch_X, batch_y in test_loader:
+                # SHIP BATCHES TO THE GPU
+                batch_X, batch_y = batch_X.to(device), batch_y.to(device)
+                
                 outputs = model(batch_X)
                 _, predicted = torch.max(outputs.data, 1)
                 total += batch_y.size(0)
@@ -90,14 +81,10 @@ def train_loso_pipeline(data_path, epochs=50, batch_size=16): # Increased epochs
                 
         acc = 100 * correct / total
         loso_accuracies.append(acc)
-        print(f"--> Subject {test_sub} Zero-Calibration Accuracy: {acc:.2f}%")
+        print(f"Result: {acc:.2f}%")
         
-    # 7. Final Results
-    print(f"\n{'='*50}")
-    print(f"FINAL LOSO ACCURACY: {np.mean(loso_accuracies):.2f}% ± {np.std(loso_accuracies):.2f}%")
-    print(f"{'='*50}")
+    print(f"\nFINAL AVG LOSO ACCURACY: {np.mean(loso_accuracies):.2f}%")
 
 if __name__ == "__main__":
-    # Point it to our mathematically aligned dataset
-    aligned_data_path = 'dataset/bci/processed/physionet_mi_aligned.pkl'
-    train_loso_pipeline(aligned_data_path)
+    train_loso_pipeline('dataset/bci/processed/physionet_mi_aligned.pkl')
+
